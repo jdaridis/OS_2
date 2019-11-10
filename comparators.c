@@ -1,7 +1,14 @@
 #include "comparators.h"
 #include "Record.h"
 
-int (*comparator[8])(Record*, Record*) = {id_cmp, name_cmp, surname_cmp, home_addr_cmp, home_num_cmp, city_cmp, mail_cmp, salary_cmp};
+int (*comparator[8])(Record*, Record*)= {id_cmp, 
+                                        name_cmp, 
+                                        surname_cmp, 
+                                        home_addr_cmp, 
+                                        home_num_cmp, 
+                                        city_cmp, 
+                                        mail_cmp, 
+                                        salary_cmp};
 
 
 int id_cmp(Record* r1, Record* r2){
