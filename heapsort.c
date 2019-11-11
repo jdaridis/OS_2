@@ -14,25 +14,35 @@ int main(int argc, char const *argv[]){
 
     int record_count = 0;
     int column = 0;
+    int start;
+    float frac;
+    int size;
     while(--argc){
         if(strcmp(*argv, "-f") == 0){
             file = fopen(*(argv + 1), "r");
-            column = atoi(*(argv + 2)) - 1;
+            
+        } else if(strcmp(*argv, "-c") == 0){
+            column = atoi(*(argv + 1)) - 1;
+        } else if(strcmp(*argv, "-s") == 0){
+            start = atoi(*(argv + 1));
+            frac = atof(*(argv + 2));
+        } else if(strcmp(*argv, "-size") == 0){
+            size = atoi(*(argv + 1));
         }
         argv++;
     }
-
-
-    while(!feof(file)){
+    
+    record_count = size*frac;
+   /*  while(!feof(file) && (float)record_count < size*frac){
         
         fread(&temp_rec, sizeof(Record), 1, file);
         if(!feof(file)){
             record_count++;
         }
         
-    }
+    } */
 
-    fseek(file, 0, SEEK_SET);
+    fseek(file, start*sizeof(Record), SEEK_SET);
 
     printf("File size %d\n", record_count);
 
@@ -44,7 +54,7 @@ int main(int argc, char const *argv[]){
 
 
     i = 0;
-     while(!feof(file)){
+     while(!feof(file) && (float)i < record_count){
         if(!feof(file)){
             fread(records[i], sizeof(Record), 1, file);
             i++;
@@ -67,20 +77,20 @@ int main(int argc, char const *argv[]){
 
 }
 
-void heap_sort(Record** array, int size,int (*comparator)(Record*, Record*)){
-    heapify(array, size, comparator);
+void heap_sort(Record** array, int end,int (*comparator)(Record*, Record*)){
+    heapify(array, end, comparator);
 
-    for(int i = size;i>0;i--){
+    for(int i = end;i>0;i--){
         swap(&array[0], &array[i]);
-        size--;
-        heap_fixup(array, size, 0 ,comparator);
+        end--;
+        heap_fixup(array, end, 0 ,comparator);
     }
 }
 
-void heapify(Record** array, int size,int (*comparator)(Record*, Record*)){
+void heapify(Record** array, int end,int (*comparator)(Record*, Record*)){
 
-    for(int i = size/2; i>=0;i--){
-        heap_fixup(array, size, i, comparator);
+    for(int i = end/2; i>=0;i--){
+        heap_fixup(array, end, i, comparator);
     }
 }
 

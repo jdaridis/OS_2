@@ -9,32 +9,42 @@
 
 int main(int argc, char const *argv[]){
 
-    FILE* file;
+     FILE* file;
 
     Record temp_rec;
     Record** records;
 
     int record_count = 0;
     int column = 0;
+    int start;
+    float frac;
+    int size;
     while(--argc){
         if(strcmp(*argv, "-f") == 0){
             file = fopen(*(argv + 1), "r");
-            column = atoi(*(argv + 2)) - 1;
+            
+        } else if(strcmp(*argv, "-c") == 0){
+            column = atoi(*(argv + 1)) - 1;
+        } else if(strcmp(*argv, "-s") == 0){
+            start = atoi(*(argv + 1));
+            frac = atof(*(argv + 2));
+        } else if(strcmp(*argv, "-size") == 0){
+            size = atoi(*(argv + 1));
         }
         argv++;
     }
-
-
-    while(!feof(file)){
+    
+    record_count = size*frac;
+   /*  while(!feof(file) && (float)record_count < size*frac){
         
         fread(&temp_rec, sizeof(Record), 1, file);
         if(!feof(file)){
             record_count++;
         }
         
-    }
+    } */
 
-    fseek(file, 0, SEEK_SET);
+    fseek(file, start*sizeof(Record), SEEK_SET);
 
     printf("File size %d\n", record_count);
 
@@ -46,15 +56,15 @@ int main(int argc, char const *argv[]){
 
 
     i = 0;
-     while(!feof(file)){
+     while(!feof(file) && (float)i < record_count){
         if(!feof(file)){
             fread(records[i], sizeof(Record), 1, file);
             i++;
         }
         
     }
-
     quick_sort(records, 0, record_count - 1, comparator[column]);
+
 
     printf("----------------------------\n");
 
@@ -66,7 +76,10 @@ int main(int argc, char const *argv[]){
     }
 
     return 0;
+
 }
+
+
 
 void quick_sort(Record **array, int low, int high, int (*comparator)(Record* s1, Record* s2)){
     int p;
