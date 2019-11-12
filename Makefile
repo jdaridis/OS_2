@@ -1,19 +1,20 @@
-all: mysort quicksort heapsort
+all: mysort coach quicksort heapsort
 
-mysort: mysort.o
-	gcc -o mysort mysort.o
+mysort: mysort.c
+	gcc -o mysort mysort.c
 
-mysort.o: mysort.c
-	gcc -g -c mysort.c
+coach: coach.c
+	gcc -o coach coach.c
 
-quicksort: quicksort.o comparators.o
-	gcc -o quicksort quicksort.o comparators.o
+
+quicksort: sorter.c quicksort.o comparators.o
+	gcc -o quicksort sorter.c quicksort.o comparators.o
 
 quicksort.o: quicksort.c quicksort.h
 	gcc -g -c quicksort.c
 
-heapsort: heapsort.o comparators.o
-	gcc -o heapsort heapsort.o comparators.o
+heapsort: sorter.c heapsort.o comparators.o
+	gcc -D__HEAP_SORT__ -o heapsort sorter.c heapsort.o comparators.o
 
 heapsort.o: heapsort.c
 	gcc -g -c heapsort.c
@@ -23,4 +24,4 @@ comparators.o: comparators.c comparators.h
 
 
 clean: 
-	rm -f ./mysort ./quicksort ./heapsort mysort.o quicksort.o comparators.o heapsort.o
+	rm -f ./mysort ./coach ./quicksort ./heapsort quicksort.o comparators.o heapsort.o
