@@ -13,6 +13,6 @@ int city_cmp(Record* r1, Record* r2);
 int mail_cmp(Record* r1, Record* r2);
 int salary_cmp(Record* r1, Record* r2);
 
-void swap(Record** r1, Record** r2);
+
 
 int (*comparator[8])(Record*, Record*);
