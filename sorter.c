@@ -28,8 +28,10 @@ int main(int argc, char const *argv[]){
     int end;
     float frac;
     int size = -1;
-    int fd = -1;
+    int id = -1;
+    int fd;
     int bytes_read;
+    int pipe;
     struct stat stat;
     while(--argc){
         if(strcmp(*argv, "-f") == 0){
@@ -37,6 +39,10 @@ int main(int argc, char const *argv[]){
             
         } else if(strcmp(*argv, "-c") == 0){
             column = atoi(*(argv + 1)) - 1;
+        } else if(strcmp(*argv, "-id") == 0){
+            id = atoi(*(argv + 1));
+        } else if(strcmp(*argv, "-p") == 0){
+            pipe = atoi(*(argv + 1));
         } else if(strcmp(*argv, "-s") == 0){
             start = atoi(*(argv + 1));
             end = atoi(*(argv + 2));
@@ -77,13 +83,26 @@ int main(int argc, char const *argv[]){
     printf("Using quicksort\n");
     #endif
 
-    printf("----------------------------\n");
+    if(id != -1){
+        for(i=0;i<record_count;i++){
+            printf("sorter %d i = %d %ld %s %s  %s %d %s %s %-9.2f\n",id,i, \
+            records[i]->id,records[i]->name ,records[i]->surname , \
+            records[i]->home_address, records[i]->home_number, records[i]->city, records[i]->mail_sector, \
+            records[i]->salary);
+            write(pipe, records[i], sizeof(Record));
+        }
+        close(pipe);
 
-    for(i=0;i<record_count;i++){
-        printf("%ld %s %s  %s %d %s %s %-9.2f\n", \
-		records[i]->id,records[i]->name ,records[i]->surname , \
-		records[i]->home_address, records[i]->home_number, records[i]->city, records[i]->mail_sector, \
-		records[i]->salary);
+
+    } else {
+        printf("----------------------------\n");
+
+        for(i=0;i<record_count;i++){
+            printf("%ld %s %s  %s %d %s %s %-9.2f\n", \
+            records[i]->id,records[i]->name ,records[i]->surname , \
+            records[i]->home_address, records[i]->home_number, records[i]->city, records[i]->mail_sector, \
+            records[i]->salary);
+        }
     }
 
     kill(getppid(), SIGUSR2);
