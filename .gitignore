@@ -54,5 +54,7 @@ mysort
 quicksort 
 heapsort
 Records*.bin
+Records*.bin.*
 .vscode/settings.json
 coach
+dump.txt

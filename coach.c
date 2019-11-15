@@ -5,53 +5,49 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/times.h>
 #include <signal.h>
 #include <fcntl.h>
 #include "Record.h"
 #include "comparators.h"
-
-typedef struct Record Record;
-
-typedef struct sorter_records{
-    float fraction;
-    int start_off;
-    int size;
-    Record** records;
-} sorter_records;
-
-sorter_records* temp_records;
-Record** records;
+#include "coach.h"
+#include "coach_statistics.h"
 
 int signal_counter = 0;
 
-void initialize_temp_records(sorter_records* temp_records,int record_count, int id);
-void sig_handler(int sig);
-void merge(sorter_records* temp_records, int sorters, Record** records, int record_count, int (*comparator)(Record*, Record*));
 int main(int argc, char const *argv[]){
 
-
-    FILE* file;
+    FILE* file, *out_file;
     int id = 0;
     char column[] = "1";
     char sort = 'q';
     int sorters;
     int** pipes;
-    int record_count;
+    int my_pipe;
+    int record_count = -1;
     int node_size;
     int fd = -1;
     int error;
+    coach_statistics stats;
+    stats.max_time = 9999.0;
+    stats.min_time = -1.0;
+    stats.avg_time = 0.0;
+
+    double t1, t2, real_time;
+    double ticspersec;
+    struct tms tb1, tb2;
     char pipe_file_d[5];
     char sorter_id[2];
     char* filename;
+    char* new_filename;
     char* start_off;
     char end_off[15];
     int bytes_read;
-    int total_bytes;
-    int total_bytes_read;
-    Record pipe_buffer;
     pid_t pid;
 
-    
+    sorter_records* temp_records;
+    Record** records;
+
     
     Record temp_rec;
     struct stat stat;
@@ -66,24 +62,36 @@ int main(int argc, char const *argv[]){
             fstat(fd, &stat);
             filename = malloc(strlen(*(argv + 1)) + 1);
             strcpy(filename, *(argv + 1));
-            // printf("Fd is %d, size is %d, number of records is %d\n", fd, stat.st_size, stat.st_size/sizeof(Record));
-            // exit(0);
         } else if(strcmp(*argv, "-h") == 0){
             sort = 'h';
             strcpy(column, *(argv + 1));
         } else if(strcmp(*argv, "-q") == 0){
             sort = 'q';
             strcpy(column, *(argv + 1));
+        } else if(strcmp(*argv, "-size") == 0){
+            record_count = atoi(*(argv + 1));
         } else if(strcmp(*argv, "-id") == 0){
             id = atoi(*(argv + 1));
+        } else if(strcmp(*argv, "-p") == 0){
+            my_pipe = atoi(*(argv + 1));
         }
         argv++;
     }
 
-    sorters = 1 << id;
+    sorters = 1 << id; 
+
     pipes = malloc(sorters * sizeof(int*));
 
-    if(fd != -1){
+    new_filename = malloc(strlen(filename) + 3);
+    strcpy(new_filename, filename);
+    strcat(new_filename, ".");
+    strcat(new_filename, column);
+    out_file = fopen(new_filename, "w");
+    
+    ticspersec = (double) sysconf(_SC_CLK_TCK);
+    t1 = (double) times(&tb1);
+
+    if(fd != -1 && record_count == -1){
         record_count = stat.st_size/sizeof(Record);
         records = malloc(record_count*sizeof(Record));
         start_off = malloc(record_count);
@@ -101,10 +109,7 @@ int main(int argc, char const *argv[]){
     }
 
     int i = 0;
-    for(i=0;i<record_count;i++){
-        records[i] = malloc(sizeof(Record));
-    }
-
+   
     temp_records = malloc(sorters*sizeof(sorter_records));
     
     initialize_temp_records(temp_records, record_count, id);
@@ -116,7 +121,6 @@ int main(int argc, char const *argv[]){
        pipe(pipes[i]);
        
     }
-
     
     for(i = 0;i<sorters;i++){
         pid = fork();
@@ -126,54 +130,73 @@ int main(int argc, char const *argv[]){
             sprintf(end_off, "%d", temp_records[i].start_off + temp_records[i].size);
             sprintf(pipe_file_d, "%d", pipes[i][1]);
             sprintf(sorter_id, "%d", i);
-            printf("Start %s end %s\n", start_off, end_off);
             if(sort == 'h'){
-                printf("Excecuting heap sort\n");
                 execlp("./heapsort", "heapsort", "-f", filename, "-id", sorter_id, "-p", pipe_file_d,"-c", column, "-s", start_off, end_off, (char  *) NULL);
             } else {
-                printf("Excecuting quick sort\n");
                 execlp("./quicksort", "quicksort", "-f", filename,"-id", sorter_id, "-p", pipe_file_d, "-c", column, "-s", start_off, end_off, (char  *) NULL);
-                printf("Error\n");           
             }
         } else {
             close(pipes[i][1]);
         }
     }
     for(i = 0;i<sorters;i++){
-        close(pipes[i][1]);
         int j = 0;
+        bytes_read = read(pipes[i][0], &temp_records[i].exec_time,sizeof(double));
       do{
           bytes_read = read(pipes[i][0], temp_records[i].records[j],sizeof(Record));
-        //   if(bytes_read >0  && j < temp_records[i].size)
-        //   printf("Just Read %ld %s %s  %s %d %s %s %-9.2f\n", \
-        //     temp_records[i].records[j]->id,temp_records[i].records[j]->name ,temp_records[i].records[j]->surname , \
-        //     temp_records[i].records[j]->home_address, temp_records[i].records[j]->home_number, temp_records[i].records[j]->city, temp_records[i].records[j]->mail_sector, \
-        //     temp_records[i].records[j]->salary);
-            
           j++;
       }while(bytes_read > 0 && j < temp_records[i].size);
     }
 
  
-    printf("Before merge\n");
-
-
     for(i=0;i<sorters;i++){
         wait(NULL);
     }
 
     merge(temp_records, sorters, records, record_count, comparator[atoi(column) - 1]);
 
+
+    for(i=0;i<sorters;i++){
+        if(temp_records[i].exec_time < stats.min_time){
+            stats.min_time = temp_records[i].exec_time;
+        }
+
+        if(temp_records[i].exec_time > stats.max_time){
+            stats.max_time = temp_records[i].exec_time;
+        }
+
+        stats.avg_time += temp_records[i].exec_time;
+    }
+
+    stats.avg_time = stats.avg_time/sorters;
+
+
     for(i=0;i<record_count;i++){
-        printf("%ld %s %s  %s %d %s %s %-9.2f\n", \
+        fprintf(out_file, "%ld %s %s  %s %d %s %s %-9.2f\n", \
         records[i]->id,records[i]->name ,records[i]->surname , \
         records[i]->home_address, records[i]->home_number, records[i]->city, records[i]->mail_sector, \
         records[i]->salary);
     }
-    
-    // wait(NULL);
+    fclose(out_file);
+    for(i=0;i<sorters;i++){
+       free(temp_records[i].records);
+       free(pipes[i]);
+    }
+    free(temp_records);
+    free(pipes);
 
-    printf("SIgnals %d\n", signal_counter);
+    for(i=0;i<record_count;i++){
+        free(records[i]);
+    }
+
+    free(records);
+    free(start_off);
+    free(filename);
+    free(new_filename);
+
+    stats.signals = signal_counter;
+    t2 = (double) times(&tb2);
+    stats.exec_time = (t2-t1)/ticspersec;
     
     return 0;
 }
@@ -182,7 +205,6 @@ int main(int argc, char const *argv[]){
 void sig_handler(int sig){
     signal(SIGUSR2, sig_handler);
     signal_counter++;
-    printf("Child finished\n");
 }
 
 void merge(sorter_records* temp_records, int sorters, Record** records, int record_count, int (*comparator)(Record*, Record*)){
@@ -190,9 +212,7 @@ void merge(sorter_records* temp_records, int sorters, Record** records, int reco
     int j_size;
     int size;
     Record** temp = malloc(record_count*sizeof(Record*));
-    for(i=0;i<record_count;i++){
-        temp[i]=malloc(sizeof(Record));
-    }
+   
     if(sorters == 1){
         for(i = 0;i<record_count;i++){
             records[i] =  temp_records->records[i];
