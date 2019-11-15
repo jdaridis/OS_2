@@ -88,16 +88,9 @@ int main(int argc, char const *argv[]){
     if(id != -1){
 
         for(i=0;i<record_count;i++){
-            printf("sorter %d i = %d %ld %s %s  %s %d %s %s %-9.2f\n",id,i, \
-            records[i]->id,records[i]->name ,records[i]->surname , \
-            records[i]->home_address, records[i]->home_number, records[i]->city, records[i]->mail_sector, \
-            records[i]->salary);
            bytes_written = write(pipe, records[i], sizeof(Record));
-           printf("After write\n");
         }
-        printf("Before close \n");
         close(pipe);
-        printf("After close\n");
 
 
     } else {
@@ -110,9 +103,7 @@ int main(int argc, char const *argv[]){
             records[i]->salary);
         }
     }
-    printf("Before kill\n");
     kill(getppid(), SIGUSR2);
-    printf("After kill\n");
     for(i=0;i<record_count;i++){
         free(records[i]);
     }

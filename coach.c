@@ -143,10 +143,7 @@ int main(int argc, char const *argv[]){
         close(pipes[i][1]);
         int j = 0;
       do{
-        //   printf("Before read\n");
           bytes_read = read(pipes[i][0], temp_records[i].records[j],sizeof(Record));
-        //   printf("After read\n");
-        //   memcpy(temp_records[i].records[j], &pipe_buffer, sizeof(Record));
         //   if(bytes_read >0  && j < temp_records[i].size)
         //   printf("Just Read %ld %s %s  %s %d %s %s %-9.2f\n", \
         //     temp_records[i].records[j]->id,temp_records[i].records[j]->name ,temp_records[i].records[j]->surname , \
@@ -154,40 +151,17 @@ int main(int argc, char const *argv[]){
         //     temp_records[i].records[j]->salary);
             
           j++;
-        //   printf("Sorter %d j =  %d\n", i, j);
       }while(bytes_read > 0 && j < temp_records[i].size);
     }
 
- /* int j = 0;
-    do{
-        for(i=0;i<sorters;i++){
-            if(j < temp_records[i].size){
-                bytes_read = 0;
-                total_bytes = 0;
-                do{
-                    printf("reading form pipe %d\n", pipes[i][0]);
-                    bytes_read = read(pipes[i][0], temp_records[i].records[j] + bytes_read,sizeof(Record) - bytes_read);
-                    printf("read %d bytes\n", bytes_read);
-                    if(bytes_read <= 0){
-                        break;
-                    }
-                    total_bytes += bytes_read;
-                } while(total_bytes != sizeof(Record));
-                printf("%ld %s %s  %s %d %s %s %-9.2f\n", \
-            temp_records[i].records[j]->id,temp_records[i].records[j]->name ,temp_records[i].records[j]->surname , \
-            temp_records[i].records[j]->home_address, temp_records[i].records[j]->home_number, temp_records[i].records[j]->city, temp_records[i].records[j]->mail_sector, \
-            temp_records[i].records[j]->salary);
-            }
-        }
-        j++;
-    } while(bytes_read > 0 && j < record_count); */
-    /* for(i=0;i<record_count;i++){
-            printf("%ld %s %s  %s %d %s %s %-9.2f\n", \
-            temp_records[0].records[i]->id,temp_records[0].records[i]->name ,temp_records[0].records[i]->surname , \
-            temp_records[0].records[i]->home_address, temp_records[0].records[i]->home_number, temp_records[0].records[i]->city, temp_records[0].records[i]->mail_sector, \
-            temp_records[0].records[i]->salary);
-        } */
-    // printf("Before merge\n");
+ 
+    printf("Before merge\n");
+
+
+    for(i=0;i<sorters;i++){
+        wait(NULL);
+    }
+
     merge(temp_records, sorters, records, record_count, comparator[atoi(column) - 1]);
 
     for(i=0;i<record_count;i++){
@@ -197,13 +171,6 @@ int main(int argc, char const *argv[]){
         records[i]->salary);
     }
     
-
-
-    
-
-
-
-    while (wait(NULL) > 0);
     // wait(NULL);
 
     printf("SIgnals %d\n", signal_counter);
@@ -220,6 +187,7 @@ void sig_handler(int sig){
 
 void merge(sorter_records* temp_records, int sorters, Record** records, int record_count, int (*comparator)(Record*, Record*)){
     int i, j, k, s;
+    int j_size;
     int size;
     Record** temp = malloc(record_count*sizeof(Record*));
     for(i=0;i<record_count;i++){
@@ -231,72 +199,64 @@ void merge(sorter_records* temp_records, int sorters, Record** records, int reco
         }
         
     } else {
-        printf("Else here temp_records[0].size = %d \n", temp_records[0].size);
         j = k =0;
         for(i=0;i<2*temp_records[0].size;i++){
-            if(j < temp_records[0].size 
-            && k < temp_records[1].size 
-            && (*comparator)(temp_records[0].records[j],temp_records[1].records[k]) < 0){
-                temp[i] = temp_records[0].records[j];
-                /* printf("%ld %s %s  %s %d %s %s %-9.2f\n", \
-        records[i]->id,records[i]->name ,records[i]->surname , \
-        records[i]->home_address, records[i]->home_number, records[i]->city, records[i]->mail_sector, \
-        records[i]->salary); */
-                j++;
-            } else if(k < temp_records[1].size){
-                temp[i] = temp_records[1].records[k];
-               /*  printf("%ld %s %s  %s %d %s %s %-9.2f\n", \
-        records[i]->id,records[i]->name ,records[i]->surname , \
-        records[i]->home_address, records[i]->home_number, records[i]->city, records[i]->mail_sector, \
-        records[i]->salary); */
-                k++;
+            if(j < temp_records[0].size  && k < temp_records[1].size){
+                if((*comparator)(temp_records[0].records[j],temp_records[1].records[k]) < 0){
+                    temp[i] = temp_records[0].records[j];
+                    j++;
+                } else {
+                    temp[i] = temp_records[1].records[k];
+                    k++;
+                }
             } else {
-                while(j < temp_records[0].size){
+                if(j < temp_records[0].size){
                     temp[i] = temp_records[0].records[j];
                     j++;
                 }
-                while(k < temp_records[1].size){
+                if(k < temp_records[1].size){
                     temp[i] = temp_records[1].records[k];
                     k++;
                 }
             }
         }
 
-        
+        j_size = i;
 
         if(sorters > 2){
             for(s=2;s<sorters;s++){
                 j = k = 0;
-               
                 if(s == sorters - 1){
                     size = record_count;
-                } else {
-                    size = 2*temp_records[s].size;
+                }else {
+                    size = j_size + temp_records[s].size;
                 }
-                 printf("size %d\n", size);
                 for(i=0;i<size;i++){
-                    if(j < size/2 && k < temp_records[s].size && (*comparator)(temp[j],temp_records[s].records[k]) < 0){
-                        records[i] = temp[j];
-                        j++;
-                    } else if(k < temp_records[s].size) {
-                        records[i] = temp_records[s].records[k];
-                        k++;
+                    if(j < j_size && k < temp_records[s].size){
+                        if((*comparator)(temp[j],temp_records[s].records[k]) < 0){
+                            records[i] = temp[j];
+                            j++;
+                        } else {
+                            records[i] = temp_records[s].records[k];
+                            k++;
+                        }
                     } else {
-                        while(j < size/2){
+                        if(j < j_size){
                             records[i] = temp[j];
                             j++;
                         }
-                        while(k < temp_records[s].size){
+                        if(k < temp_records[s].size){
                             records[i] = temp_records[s].records[k];
                             k++;
                         }
                     }
                 }
 
-                for(i=0;i<=size;i++){
+                j_size = j + k;
+
+                for(i=0;i<size;i++){
                    temp[i] = records[i];
                 }
-
 
             }
         } else {
@@ -305,6 +265,8 @@ void merge(sorter_records* temp_records, int sorters, Record** records, int reco
             }
         }
     }
+
+    free(temp);
 }
 
 
@@ -334,7 +296,6 @@ void initialize_temp_records(sorter_records* temp_records,int record_count, int 
         temp_records[0].size = node_size;
         temp_records[1].size = node_size;
         
-        printf("node size %d\n", node_size);
         temp_records[0].records = malloc(node_size*sizeof(Record*));
         temp_records[1].records = malloc(node_size*sizeof(Record*));
         for(i=0;i<node_size;i++){
@@ -345,7 +306,6 @@ void initialize_temp_records(sorter_records* temp_records,int record_count, int 
 
     case 2:
         node_size = (1.0/8.0)*record_count;
-        printf("node size %d\n", node_size);
         temp_records[0].records = malloc(node_size*sizeof(Record*));
         temp_records[0].fraction = (1.0/8.0);
         temp_records[0].start_off = 0;
@@ -434,6 +394,7 @@ void initialize_temp_records(sorter_records* temp_records,int record_count, int 
         temp_records[7].start_off = temp_records[6].start_off + temp_records[6].fraction*record_count;
         temp_records[7].size = record_count - temp_records[7].start_off;
         temp_records[7].records = malloc(temp_records[7].size*sizeof(Record*));
+      
 
         for(i=0;i<node_size;i++){
             temp_records[6].records[i] = malloc(sizeof(Record));
