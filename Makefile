@@ -1,10 +1,10 @@
 all: mysort coach quicksort heapsort
 
 mysort: mysort.c
-	gcc -g -o mysort mysort.c
+	gcc -g -o mysort mysort.c -lm
 
 coach: coach.c coach.h comparators.o
-	gcc -g -o coach coach.c comparators.o
+	gcc -g -o coach coach.c comparators.o -lm
 
 
 quicksort: sorter.c quicksort.o comparators.o

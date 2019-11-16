@@ -29,8 +29,8 @@ int main(int argc, char const *argv[]){
     int fd = -1;
     int error;
     coach_statistics stats;
-    stats.max_time = 9999.0;
-    stats.min_time = -1.0;
+    stats.max_time = -1.0;
+    stats.min_time = 9999.0;
     stats.avg_time = 0.0;
 
     double t1, t2, real_time;
@@ -93,10 +93,9 @@ int main(int argc, char const *argv[]){
 
     if(fd != -1 && record_count == -1){
         record_count = stat.st_size/sizeof(Record);
-        records = malloc(record_count*sizeof(Record));
-        start_off = malloc(record_count);
         
-    } else {
+        
+    } else if(fd == -1 && record_count == -1){
           while(!feof(file)){
         
             fread(&temp_rec, sizeof(Record), 1, file);
@@ -105,8 +104,12 @@ int main(int argc, char const *argv[]){
             }
             
         }
-        records = malloc(record_count*sizeof(Record*));
     }
+
+    records = malloc(record_count*sizeof(Record));
+    start_off = malloc(record_count);
+
+    printf("File %s, size %d, id %d, type %c, column %s\n", filename, record_count, id, sort, column);
 
     int i = 0;
    
@@ -197,6 +200,10 @@ int main(int argc, char const *argv[]){
     stats.signals = signal_counter;
     t2 = (double) times(&tb2);
     stats.exec_time = (t2-t1)/ticspersec;
+
+    if(my_pipe != -1){
+        write(my_pipe, &stats, sizeof(coach_statistics));
+    }
     
     return 0;
 }

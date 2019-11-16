@@ -8,14 +8,18 @@
 #include <sys/times.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <math.h>
 #include "Record.h"
 #include "coach_statistics.h"
 
 typedef struct Record Record;
 
 typedef struct coach{
-    char type;
-    char column[1];
+    char type[3];
+    char column[2];
+    char id[2];
+    int fd[2];
+    coach_statistics stats;
 } coach;
 
 int main(int argc, char const *argv[]){
@@ -23,40 +27,91 @@ int main(int argc, char const *argv[]){
     FILE* file;
     int fd;
     char* filename;
+    pid_t pid;
     int coach_count = 0;;
     coach coaches[4];
+    char pipe_file_d[5];
     struct stat stat;
     int record_count;
+    char* file_size;
+    int i;
+    int bytes_read;
+    double max_time = -1.0;
+    double min_time = 9999.0;
+    double avg_time = 0.0;
 
     Record temp_rec;
 
-    int record_count = 0;
+    
     while(--argc){
         if(strcmp(*argv, "-f") == 0){
             fd = open(*(argv + 1), O_RDONLY);
             fstat(fd, &stat);
             filename = malloc(strlen(*(argv + 1)) + 1);
             strcpy(filename, *(argv + 1));
-        } else if(strcmp(*argv, "-q") == 0){
+        } else if(strcmp(*argv, "-q") == 0 || strcmp(*argv, "-h") == 0){
             if(coach_count < 4){
-                coaches[coach_count].type = 'q';
+                strcpy(coaches[coach_count].type, *argv);
                 strcpy(coaches[coach_count].column, *(argv + 1));
+                sprintf(coaches[coach_count].id, "%d", coach_count);
                 coach_count++;
             }
             
-        }  else if(strcmp(*argv, "-h") == 0){
-            if(coach_count < 4){
-                coaches[coach_count].type = 'h';
-                strcpy(coaches[coach_count].column, *(argv + 1));
-                coach_count++;
-            }
-        }
+        } 
         argv++;
     }
 
     record_count = stat.st_size/sizeof(Record);
 
-   
+    file_size = malloc((int)log10(record_count) + 1);
+
+    sprintf(file_size, "%d", record_count);
+
+    printf("Coach count %d, record count %d, file_size %d\n", coach_count, record_count, (int)log10(record_count) + 1);
+
+    for(i = 0;i<coach_count;i++){
+        printf("type %s, column %s, id %s\n", coaches[i].type, coaches[i].column, coaches[i].id);
+        pipe(coaches[i].fd);
+    }
+
+
+
+   for(i = 0;i<coach_count;i++){
+       pid = fork();
+       if(pid == 0){
+           sprintf(pipe_file_d, "%d", coaches[i].fd[1]);
+           execlp("./coach", "coach", "-f", filename,"-id", coaches[i].id, coaches[i].type, coaches[i].column, "-size", file_size,"-p", pipe_file_d, (char*)NULL);
+           perror("Failed to exec");
+       } else {
+           close(coaches[i].fd[1]);
+       }
+   }
+
+   for(i = 0;i<coach_count;i++){
+      do{
+        bytes_read = read(coaches[i].fd[0], &coaches[i].stats, sizeof(coach_statistics));
+      } while(bytes_read != 0);
+   }
+
+    for(i = 0;i<coach_count;i++){
+        wait(NULL);
+    }
+
+   for(i = 0;i<coach_count;i++){
+
+        printf("For coach: %s\n Max sorter time %lf\n Min sorter time: %lf, average sorter time %lf, signals received");
+        if(coaches[i].stats.exec_time > max_time){
+            max_time = coaches[i].stats.exec_time;
+        }
+
+        if(coaches[i].stats.exec_time < min_time){
+            min_time = coaches[i].stats.exec_time;
+        }
+
+        avg_time += coaches[i].stats.exec_time;
+    }
+
+   avg_time = avg_time/coach_count;
 
 
 
