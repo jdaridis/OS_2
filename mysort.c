@@ -24,7 +24,6 @@ typedef struct coach{
 
 int main(int argc, char const *argv[]){
     
-    FILE* file;
     int fd;
     char* filename;
     pid_t pid;
@@ -36,6 +35,9 @@ int main(int argc, char const *argv[]){
     char* file_size;
     int i;
     int bytes_read;
+    double t1, t2, real_time;
+    double ticspersec;
+    struct tms tb1, tb2;
     double max_time = -1.0;
     double min_time = 9999.0;
     double avg_time = 0.0;
@@ -55,11 +57,18 @@ int main(int argc, char const *argv[]){
                 strcpy(coaches[coach_count].column, *(argv + 1));
                 sprintf(coaches[coach_count].id, "%d", coach_count);
                 coach_count++;
+            } else {
+                printf("Too many sorters\n");
+                exit(EXIT_FAILURE);
             }
             
         } 
         argv++;
     }
+
+
+    ticspersec = (double) sysconf(_SC_CLK_TCK);
+    t1 = (double)times(&tb1);
 
     record_count = stat.st_size/sizeof(Record);
 
@@ -131,7 +140,15 @@ int main(int argc, char const *argv[]){
     avg_time_cpu = avg_time_cpu/coach_count;
 
     printf("For the coaches\n");
-    printf("Max time: %lf\nMin time: %lf\nAverage time: %lf\n", max_time, min_time, avg_time);
+    printf("Max time: %lf\n", max_time);
+    printf("Min time: %lf\n", min_time);
+    printf("Average time: %lf\n\n", avg_time);
+
+    t2 = (double)times(&tb2);
+
+    real_time = (t2 - t1)/ticspersec;
+
+    printf("Turnaround time for the whole program: %lf\n", real_time);
 
     free(filename);
     free(file_size);
