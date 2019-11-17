@@ -91,9 +91,11 @@ int main(int argc, char const *argv[]){
     #endif
 
     t2 = (double) times(&tb2);
+    cpu_time = (double) ((tb2.tms_utime + tb2.tms_stime) - (tb1.tms_utime + tb1.tms_stime))/ticspersec;
     real_time = (t2 - t1) / ticspersec;
     if(pipe != -1){
         write(pipe, &real_time, sizeof(double));
+        write(pipe, &cpu_time, sizeof(double));
         for(i=0;i<record_count;i++){
            write(pipe, records[i], sizeof(Record));
         }

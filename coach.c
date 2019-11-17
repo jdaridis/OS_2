@@ -8,6 +8,7 @@
 #include <sys/times.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <math.h>
 #include "Record.h"
 #include "comparators.h"
 #include "coach.h"
@@ -23,7 +24,7 @@ int main(int argc, char const *argv[]){
     char sort = 'q';
     int sorters;
     int** pipes;
-    int my_pipe;
+    int my_pipe = -1;
     int record_count = -1;
     int node_size;
     int fd = -1;
@@ -32,8 +33,11 @@ int main(int argc, char const *argv[]){
     stats.max_time = -1.0;
     stats.min_time = 9999.0;
     stats.avg_time = 0.0;
+    stats.max_time_cpu = -1.0;
+    stats.min_time_cpu = 9999.0;
+    stats.avg_time_cpu = 0.0;
 
-    double t1, t2, real_time;
+    double t1, t2, real_time, cpu_time;
     double ticspersec;
     struct tms tb1, tb2;
     char pipe_file_d[5];
@@ -41,7 +45,7 @@ int main(int argc, char const *argv[]){
     char* filename;
     char* new_filename;
     char* start_off;
-    char end_off[15];
+    char* end_off;
     int bytes_read;
     pid_t pid;
 
@@ -107,7 +111,8 @@ int main(int argc, char const *argv[]){
     }
 
     records = malloc(record_count*sizeof(Record));
-    start_off = malloc(record_count);
+    start_off = malloc((int)log10(record_count) + 2);
+    end_off = malloc((int)log10(record_count) + 2);
 
     printf("File %s, size %d, id %d, type %c, column %s\n", filename, record_count, id, sort, column);
 
@@ -145,6 +150,7 @@ int main(int argc, char const *argv[]){
     for(i = 0;i<sorters;i++){
         int j = 0;
         bytes_read = read(pipes[i][0], &temp_records[i].exec_time,sizeof(double));
+        bytes_read = read(pipes[i][0], &temp_records[i].exec_time_cpu, sizeof(double));
       do{
           bytes_read = read(pipes[i][0], temp_records[i].records[j],sizeof(Record));
           j++;
@@ -164,14 +170,24 @@ int main(int argc, char const *argv[]){
             stats.min_time = temp_records[i].exec_time;
         }
 
+        if(temp_records[i].exec_time_cpu < stats.min_time_cpu){
+            stats.min_time_cpu = temp_records[i].exec_time_cpu;
+        }
+
         if(temp_records[i].exec_time > stats.max_time){
             stats.max_time = temp_records[i].exec_time;
         }
 
+        if(temp_records[i].exec_time_cpu > stats.max_time_cpu){
+            stats.max_time_cpu = temp_records[i].exec_time_cpu;
+        }
+
         stats.avg_time += temp_records[i].exec_time;
+        stats.avg_time_cpu += temp_records[i].exec_time_cpu;
     }
 
     stats.avg_time = stats.avg_time/sorters;
+    stats.avg_time_cpu = stats.avg_time_cpu/sorters;
 
 
     for(i=0;i<record_count;i++){
@@ -194,12 +210,15 @@ int main(int argc, char const *argv[]){
 
     free(records);
     free(start_off);
+    free(end_off);
     free(filename);
     free(new_filename);
 
     stats.signals = signal_counter;
     t2 = (double) times(&tb2);
     stats.exec_time = (t2-t1)/ticspersec;
+    stats.exec_time_cpu = (double) ((tb2.tms_utime + tb2.tms_stime) -
+    (tb1.tms_utime + tb1.tms_stime));
 
     if(my_pipe != -1){
         write(my_pipe, &stats, sizeof(coach_statistics));

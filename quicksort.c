@@ -33,12 +33,3 @@ int partition(Record **array, int low, int high, int (*comparator)(Record* s1, R
 }
 
 
-
-
-
-
-
-
-
-
-

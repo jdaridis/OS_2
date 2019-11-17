@@ -6,6 +6,7 @@ typedef struct sorter_records{
     Record** records;
     float fraction;
     double exec_time;
+    double exec_time_cpu;
 } sorter_records;
 void initialize_temp_records(sorter_records* temp_records,int record_count, int id);
 void sig_handler(int sig);

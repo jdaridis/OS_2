@@ -39,9 +39,9 @@ int main(int argc, char const *argv[]){
     double max_time = -1.0;
     double min_time = 9999.0;
     double avg_time = 0.0;
-
-    Record temp_rec;
-
+    double max_time_cpu = -1.0;
+    double min_time_cpu = 9999.0;
+    double avg_time_cpu = 0.0;
     
     while(--argc){
         if(strcmp(*argv, "-f") == 0){
@@ -63,7 +63,7 @@ int main(int argc, char const *argv[]){
 
     record_count = stat.st_size/sizeof(Record);
 
-    file_size = malloc((int)log10(record_count) + 1);
+    file_size = malloc((int)log10(record_count) + 2);
 
     sprintf(file_size, "%d", record_count);
 
@@ -96,24 +96,45 @@ int main(int argc, char const *argv[]){
     for(i = 0;i<coach_count;i++){
         wait(NULL);
     }
-
+    printf("---------------\n");
    for(i = 0;i<coach_count;i++){
-
-        printf("For coach: %s\n Max sorter time %lf\n Min sorter time: %lf, average sorter time %lf, signals received");
+        printf("For coach: %d\n", i);
+        printf("Max sorter time %lf\n", coaches[i].stats.max_time);
+        printf("Max sorter cpu time %lf\n", coaches[i].stats.max_time_cpu);
+        printf("Min sorter time: %lf\n",coaches[i].stats.min_time);
+        printf("Min sorter cpu time: %lf\n",coaches[i].stats.min_time_cpu);
+        printf("Average sorter time: %lf\n", coaches[i].stats.avg_time);
+        printf("Average sorter cpu time: %lf\n", coaches[i].stats.avg_time_cpu);
+        printf("Signals received: %d\n\n",coaches[i].stats.signals);
         if(coaches[i].stats.exec_time > max_time){
             max_time = coaches[i].stats.exec_time;
+        }
+
+        if(coaches[i].stats.exec_time_cpu > max_time_cpu){
+            max_time_cpu = coaches[i].stats.exec_time_cpu;
         }
 
         if(coaches[i].stats.exec_time < min_time){
             min_time = coaches[i].stats.exec_time;
         }
 
+        if(coaches[i].stats.exec_time_cpu < min_time_cpu){
+            min_time_cpu = coaches[i].stats.exec_time_cpu;
+        }
+
         avg_time += coaches[i].stats.exec_time;
+
+        avg_time_cpu += coaches[i].stats.exec_time_cpu;
     }
 
-   avg_time = avg_time/coach_count;
+    avg_time = avg_time/coach_count;
+    avg_time_cpu = avg_time_cpu/coach_count;
 
+    printf("For the coaches\n");
+    printf("Max time: %lf\nMin time: %lf\nAverage time: %lf\n", max_time, min_time, avg_time);
 
+    free(filename);
+    free(file_size);
 
     return 0;
 }
