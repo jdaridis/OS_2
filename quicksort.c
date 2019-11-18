@@ -5,7 +5,7 @@
 
 void swap(Record** r1, Record** r2);
 
-
+// Generic quicksort of Record array.
 void quick_sort(Record **array, int low, int high, int (*comparator)(Record* s1, Record* s2)){
     int p;
     if(low < high){
@@ -31,5 +31,3 @@ int partition(Record **array, int low, int high, int (*comparator)(Record* s1, R
     return i;
     
 }
-
-

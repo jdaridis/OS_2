@@ -1,7 +1,8 @@
 #include "comparators.h"
 #include "Record.h"
 
-int (*comparator[8])(Record*, Record*)= {id_cmp, 
+// Array of function pointers to all the available comparators.
+int (*comparator[FIELD_NUM])(Record*, Record*)= {id_cmp, 
                                         name_cmp, 
                                         surname_cmp, 
                                         home_addr_cmp, 

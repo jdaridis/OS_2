@@ -5,6 +5,7 @@
 
 void swap(Record** r1, Record** r2);
 
+// Generic heapsort of Record array.
 void heap_sort(Record** array, int end,int (*comparator)(Record*, Record*)){
     heapify(array, end, comparator);
 
@@ -21,7 +22,6 @@ void heapify(Record** array, int end,int (*comparator)(Record*, Record*)){
         heap_fixup(array, end, i, comparator);
     }
 }
-
 
 void heap_fixup(Record** array,int size, int i, int (*comparator)(Record*, Record*)){
     int left = left_child(i);

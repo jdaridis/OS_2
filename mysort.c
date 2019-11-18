@@ -88,7 +88,9 @@ int main(int argc, char const *argv[]){
     ticspersec = (double) sysconf(_SC_CLK_TCK);
     t1 = (double)times(&tb1);
 
+    // Use the size of the file in bytes to determine how many records there are.
     record_count = stat.st_size/sizeof(Record);
+    close(fd);
 
     // Allocate enough memory to hold the number of digits of the filesize.
     file_size = malloc((int)log10(record_count) + 2);

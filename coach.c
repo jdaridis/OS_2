@@ -40,7 +40,6 @@ int main(int argc, char const *argv[]){
     double ticspersec;
     struct tms tb1, tb2;
     char pipe_file_d[5];
-    char sorter_id[2];
     char* filename;
     char* new_filename;
     char* start_off;
@@ -93,7 +92,6 @@ int main(int argc, char const *argv[]){
     ticspersec = (double) sysconf(_SC_CLK_TCK);
     t1 = (double) times(&tb1);
 
-
     // In case this program is run separately find the file size.
     if(fd != -1 && record_count == -1){
         record_count = stat.st_size/sizeof(Record);
@@ -130,11 +128,10 @@ int main(int argc, char const *argv[]){
             sprintf(start_off, "%d", temp_records[i].start_off);
             sprintf(end_off, "%d", temp_records[i].start_off + temp_records[i].size);
             sprintf(pipe_file_d, "%d", pipes[i][1]);
-            sprintf(sorter_id, "%d", i);
             if(sort == 'h'){
-                execlp("./heapsort", "heapsort", "-f", filename, "-id", sorter_id, "-p", pipe_file_d,"-c", column, "-s", start_off, end_off, (char  *) NULL);
+                execlp("./heapsort", "heapsort", "-f", filename, "-p", pipe_file_d,"-c", column, "-s", start_off, end_off, (char  *) NULL);
             } else {
-                execlp("./quicksort", "quicksort", "-f", filename,"-id", sorter_id, "-p", pipe_file_d, "-c", column, "-s", start_off, end_off, (char  *) NULL);
+                execlp("./quicksort", "quicksort", "-f", filename, "-p", pipe_file_d, "-c", column, "-s", start_off, end_off, (char  *) NULL);
             }
         } else {
             close(pipes[i][1]);
@@ -238,12 +235,12 @@ void merge(sorter_records* temp_records, int sorters, Record** records, int reco
     int j_size;
     int size;
     Record** temp = malloc(record_count*sizeof(Record*));
-   
+    
+    // If the sorter is 1 trivial case.
     if(sorters == 1){
         for(i = 0;i<record_count;i++){
             records[i] =  temp_records->records[i];
         }
-        
     } else {
         j = k =0;
         // Merge the 2 first sub-arrays.
@@ -316,6 +313,7 @@ void merge(sorter_records* temp_records, int sorters, Record** records, int reco
 }
 
 // Initialise the structure to hold the Records coming from the sorters.
+// Holding the starting offset, the fraction and the size of the array.
 void initialize_temp_records(sorter_records* temp_records,int record_count, int id){
     int node_size;
     int i;
