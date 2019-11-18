@@ -18,7 +18,7 @@ int signal_counter = 0;
 
 int main(int argc, char const *argv[]){
 
-    FILE* file, *out_file;
+    FILE* out_file;
     int id = 0;
     char column[] = "1";
     char sort = 'q';
@@ -26,7 +26,6 @@ int main(int argc, char const *argv[]){
     int** pipes;
     int my_pipe = -1;
     int record_count = -1;
-    int node_size;
     int fd = -1;
     int error;
     coach_statistics stats;
@@ -51,14 +50,10 @@ int main(int argc, char const *argv[]){
 
     sorter_records* temp_records;
     Record** records;
-
-    
-    Record temp_rec;
     struct stat stat;
 
     while(--argc){
         if(strcmp(*argv, "-f") == 0){
-            file = fopen(*(argv + 1), "r");
             filename = malloc(strlen(*(argv + 1)) + 1);
             strcpy(filename, *(argv + 1));
         } else if(strcmp(*argv, "-fd") == 0){
@@ -82,54 +77,52 @@ int main(int argc, char const *argv[]){
         argv++;
     }
 
+    //Shifting left by id means 2^id number of sorters.
     sorters = 1 << id; 
 
     pipes = malloc(sorters * sizeof(int*));
 
+    // Concatinating the old filename with the column number.
     new_filename = malloc(strlen(filename) + 3);
     strcpy(new_filename, filename);
     strcat(new_filename, ".");
     strcat(new_filename, column);
     out_file = fopen(new_filename, "w");
     
+    // Start the clock.
     ticspersec = (double) sysconf(_SC_CLK_TCK);
     t1 = (double) times(&tb1);
 
+
+    // In case this program is run separately find the file size.
     if(fd != -1 && record_count == -1){
         record_count = stat.st_size/sizeof(Record);
-        
-        
     } else if(fd == -1 && record_count == -1){
-          while(!feof(file)){
-        
-            fread(&temp_rec, sizeof(Record), 1, file);
-            if(!feof(file)){
-                record_count++;
-            }
-            
-        }
+        fd = open(filename, O_RDONLY);
+        fstat(fd, &stat);
+        record_count = stat.st_size/sizeof(Record);
     }
 
     records = malloc(record_count*sizeof(Record));
+
+    // Allocate enough memory to hold the number of digits in start and end offset.
     start_off = malloc((int)log10(record_count) + 2);
     end_off = malloc((int)log10(record_count) + 2);
-
-    printf("File %s, size %d, id %d, type %c, column %s\n", filename, record_count, id, sort, column);
 
     int i = 0;
    
     temp_records = malloc(sorters*sizeof(sorter_records));
     
     initialize_temp_records(temp_records, record_count, id);
-    signal(SIGUSR2, sig_handler);
+    signal(SIGUSR2, sig_handler); // Register handler for SIGUSR2 signal.
 
+    // For each sorter construct a pipe to communicate.
     for(i = 0;i<sorters;i++){
        pipes[i] = malloc(2*sizeof(int));
-       
        pipe(pipes[i]);
-       
     }
     
+    // Spawn the new procceses and execute the sorters.
     for(i = 0;i<sorters;i++){
         pid = fork();
         if(pid == 0){
@@ -147,8 +140,11 @@ int main(int argc, char const *argv[]){
             close(pipes[i][1]);
         }
     }
+
+    // For each sorter read its pipe.
     for(i = 0;i<sorters;i++){
         int j = 0;
+        // First read the stats and then the sorted Records.
         bytes_read = read(pipes[i][0], &temp_records[i].exec_time,sizeof(double));
         bytes_read = read(pipes[i][0], &temp_records[i].exec_time_cpu, sizeof(double));
       do{
@@ -157,14 +153,12 @@ int main(int argc, char const *argv[]){
       }while(bytes_read > 0 && j < temp_records[i].size);
     }
 
- 
-    for(i=0;i<sorters;i++){
-        wait(NULL);
-    }
+    // Wait until all the children have finished, meaning wait returns -1;
+    while(wait(NULL) > 0);
 
     merge(temp_records, sorters, records, record_count, comparator[atoi(column) - 1]);
 
-
+    // Keep the statistics.
     for(i=0;i<sorters;i++){
         if(temp_records[i].exec_time < stats.min_time){
             stats.min_time = temp_records[i].exec_time;
@@ -189,7 +183,7 @@ int main(int argc, char const *argv[]){
     stats.avg_time = stats.avg_time/sorters;
     stats.avg_time_cpu = stats.avg_time_cpu/sorters;
 
-
+    // Print the sorted Records to the file.
     for(i=0;i<record_count;i++){
         fprintf(out_file, "%ld %s %s  %s %d %s %s %-9.2f\n", \
         records[i]->id,records[i]->name ,records[i]->surname , \
@@ -197,6 +191,8 @@ int main(int argc, char const *argv[]){
         records[i]->salary);
     }
     fclose(out_file);
+
+    // Free all the memory allocated.
     for(i=0;i<sorters;i++){
        free(temp_records[i].records);
        free(pipes[i]);
@@ -215,11 +211,14 @@ int main(int argc, char const *argv[]){
     free(new_filename);
 
     stats.signals = signal_counter;
+
+    // Stop the clock and find the real time and cpu time elapsed.
     t2 = (double) times(&tb2);
     stats.exec_time = (t2-t1)/ticspersec;
     stats.exec_time_cpu = (double) ((tb2.tms_utime + tb2.tms_stime) -
-    (tb1.tms_utime + tb1.tms_stime));
+    (tb1.tms_utime + tb1.tms_stime)) / ticspersec;
 
+    // Pass the stats back to the parent.
     if(my_pipe != -1){
         write(my_pipe, &stats, sizeof(coach_statistics));
     }
@@ -227,12 +226,13 @@ int main(int argc, char const *argv[]){
     return 0;
 }
 
-
+// Handler for the SIGUSR2 signal.
 void sig_handler(int sig){
     signal(SIGUSR2, sig_handler);
     signal_counter++;
 }
 
+// Function to merge all the sorted sub-arrays back to 1 array.
 void merge(sorter_records* temp_records, int sorters, Record** records, int record_count, int (*comparator)(Record*, Record*)){
     int i, j, k, s;
     int j_size;
@@ -246,6 +246,7 @@ void merge(sorter_records* temp_records, int sorters, Record** records, int reco
         
     } else {
         j = k =0;
+        // Merge the 2 first sub-arrays.
         for(i=0;i<2*temp_records[0].size;i++){
             if(j < temp_records[0].size  && k < temp_records[1].size){
                 if((*comparator)(temp_records[0].records[j],temp_records[1].records[k]) < 0){
@@ -269,6 +270,7 @@ void merge(sorter_records* temp_records, int sorters, Record** records, int reco
 
         j_size = i;
 
+        // If there are more than 2 sub-arrays merge them iteratively.
         if(sorters > 2){
             for(s=2;s<sorters;s++){
                 j = k = 0;
@@ -303,7 +305,6 @@ void merge(sorter_records* temp_records, int sorters, Record** records, int reco
                 for(i=0;i<size;i++){
                    temp[i] = records[i];
                 }
-
             }
         } else {
             for(i=0;i<2*temp_records[0].size;i++){
@@ -311,13 +312,10 @@ void merge(sorter_records* temp_records, int sorters, Record** records, int reco
             }
         }
     }
-
     free(temp);
 }
 
-
-
-
+// Initialise the structure to hold the Records coming from the sorters.
 void initialize_temp_records(sorter_records* temp_records,int record_count, int id){
     int node_size;
     int i;
