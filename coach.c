@@ -84,8 +84,10 @@ int main(int argc, char const *argv[]){
     // Concatinating the old filename with the column number.
     new_filename = malloc(strlen(filename) + 3);
     strcpy(new_filename, filename);
+    strtok(new_filename, ".");
     strcat(new_filename, ".");
     strcat(new_filename, column);
+    printf("%s\n", new_filename);
     out_file = fopen(new_filename, "w");
     
     // Start the clock.
